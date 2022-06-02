@@ -251,7 +251,7 @@ resource "aws_route" "route_nat_2c" {
     gateway_id = aws_nat_gateway.nat_2c.id
 }
 
-##############################################################################EC2 Instance##############################################################################
+##############################################################################Bastion  서버 생성##############################################################################
 
 #############Bastion 서버 생성##############
 resource "aws_instance" "bastion" {
@@ -307,4 +307,110 @@ resource "aws_eip" "bastion-eip" {
   tags = {
     Name = "Bastion-EIP"
   }
+}
+
+##############################################################################Web  서버 생성##############################################################################
+
+#############Web-2a 서버 생성##############
+resource "aws_instance" "Web-2a" {
+    ami = "ami-0cbec04a61be382d9"
+    instance_type = "t3.medium"
+    subnet_id = aws_subnet.private_subnet_2a_web.id
+
+    key_name = "Misha.K"
+    security_groups = [aws_security_group.WEB-SG.id]
+
+    root_block_device {
+      volume_size = "8"
+      volume_type = "gp3"
+      delete_on_termination = true
+    }
+
+    user_data = <<-EOF
+        #!/bin/bash
+        sudo sleep 5
+        echo "sleep 5s"
+        sudo yum -y update
+        sudo yum -y install httpd
+        sudo echo "Test-for-3-tier-Terraform-configuration-2a" > /var/www/html/index.html
+        sudo systemctl restart httpd
+        --//--
+        EOF
+    
+    tags = {
+        Name = "WEB-2a"
+    }
+}
+
+#############Web-2c 서버 생성##############
+resource "aws_instance" "Web-2c" {
+    ami = "ami-0cbec04a61be382d9"
+    instance_type = "t3.medium"
+    subnet_id = aws_subnet.private_subnet_2c_web.id
+
+    key_name = "Misha.K"
+    security_groups = [aws_security_group.WEB-SG.id]
+
+    root_block_device {
+      volume_size = "8"
+      volume_type = "gp3"
+      delete_on_termination = true
+    }
+
+    user_data = <<-EOF
+        MIME-Version: 1.0
+        Content-Type: multipart/mixed; boundary="//"
+
+        --//
+        Content-Type: text/x-shellscript; charset="us-ascii"
+        #!/bin/bash
+        set -ex
+        sudo sleep 5
+        echo "sleep 5s"
+        sudo yum -y update
+        sudo yum -y install httpd
+        sudo echo "Test-for-3-tier-Terraform-configuration-2c" > /var/www/html/index.html
+        sudo systemctl restart httpd
+        --//--
+        EOF
+    
+    tags = {
+        Name = "WEB-2c"
+    }
+}
+
+####################WEB 용 SG 생성#####################
+resource "aws_security_group" "WEB-SG" {
+    name = "WEB-SG"
+    description = "From External"
+    vpc_id = aws_vpc.main_vpc.id
+
+    #####################From Bastion#####################
+    ingress {
+        description = "TCP from MZC"
+        from_port = 22
+        to_port = 22
+        protocol = "TCP"
+        security_groups = ["${aws_security_group.bastion-SG.id}"]
+    }
+
+    ####################From External####################
+    ingress {
+        description = "TCP from MZC"
+        from_port = 80
+        to_port = 80
+        protocol = "TCP"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    egress {
+        from_port = 0
+        to_port = 0
+        protocol = "-1"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    tags = {
+        Name = "Bastion-SG"
+    }
 }
