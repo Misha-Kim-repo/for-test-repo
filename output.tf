@@ -17,3 +17,7 @@ output "sg" {
 output "sg_rules" {
     value = local.sg_rules
 }
+
+output "module-sg" {
+    value = module.security_groups
+}
